@@ -1,0 +1,3 @@
+import {beforeAll,describe,expect,it} from "vitest";import {createOpaqueToken,hashToken,normalizeEmail,tokenMatches} from "../src/lib/security";
+beforeAll(()=>{process.env.TOKEN_PEPPER="test-pepper-that-is-longer-than-thirty-two-characters"});
+describe("ticket token security",()=>{it("creates distinct high entropy tokens",()=>{const a=createOpaqueToken(),b=createOpaqueToken();expect(a).not.toBe(b);expect(a.length).toBeGreaterThan(40)});it("stores and compares only hashes",()=>{const token=createOpaqueToken(),hash=hashToken(token);expect(hash).not.toContain(token);expect(tokenMatches(token,hash)).toBe(true);expect(tokenMatches(`${token}x`,hash)).toBe(false)});it("normalizes purchaser email",()=>expect(normalizeEmail(" Test@Example.COM ")).toBe("test@example.com"));});

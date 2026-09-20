@@ -1,0 +1,254 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+enum UserRole { USER ADMIN }
+enum OrganizerStatus { ACTIVE SUSPENDED }
+enum EventStatus { DRAFT PUBLISHED SOLD_OUT CANCELLED SUSPENDED ARCHIVED }
+enum OrderStatus { PENDING PAID FAILED CANCELLED PARTIALLY_REFUNDED REFUNDED }
+enum TicketStatus { VALID USED CANCELLED REFUNDED }
+enum ReportStatus { OPEN RESOLVED DISMISSED }
+enum RefundStatus { PENDING SUCCEEDED FAILED }
+
+model User {
+  id String @id @default(cuid())
+  clerkId String @unique
+  email String @unique
+  displayName String?
+  role UserRole @default(USER)
+  organizer Organizer?
+  orders Order[]
+  auditLogs AuditLog[] @relation("ActorLogs")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Organizer {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  name String
+  slug String @unique
+  descriptionJa String?
+  descriptionEn String?
+  logoUrl String?
+  contactEmail String
+  status OrganizerStatus @default(ACTIVE)
+  stripeAccountId String? @unique
+  stripeDetailsSubmitted Boolean @default(false)
+  stripeChargesEnabled Boolean @default(false)
+  stripePayoutsEnabled Boolean @default(false)
+  events Event[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id String @id @default(cuid())
+  slug String @unique
+  nameJa String
+  nameEn String
+  events Event[]
+}
+
+model Event {
+  id String @id @default(cuid())
+  organizerId String
+  organizer Organizer @relation(fields: [organizerId], references: [id], onDelete: Restrict)
+  categoryId String?
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  slug String @unique
+  status EventStatus @default(DRAFT)
+  titleJa String?
+  titleEn String?
+  descriptionJa String?
+  descriptionEn String?
+  startsAt DateTime
+  endsAt DateTime
+  timezone String @default("America/Vancouver")
+  venueName String
+  address String
+  city String @default("Vancouver")
+  latitude Float?
+  longitude Float?
+  ageRestriction String?
+  refundPolicyJa String?
+  refundPolicyEn String?
+  termsAcceptedAt DateTime?
+  termsVersion String?
+  venuePermissionAcceptedAt DateTime?
+  featured Boolean @default(false)
+  publishedAt DateTime?
+  cancelledAt DateTime?
+  images EventImage[]
+  ticketTypes TicketType[]
+  orders Order[]
+  reports EventReport[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([organizerId, status])
+  @@index([status, startsAt])
+  @@index([categoryId])
+}
+
+model EventImage {
+  id String @id @default(cuid())
+  eventId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  storageKey String @unique
+  url String
+  mimeType String
+  byteSize Int
+  width Int
+  height Int
+  altJa String?
+  altEn String?
+  position Int @default(0)
+}
+
+model TicketType {
+  id String @id @default(cuid())
+  eventId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  nameJa String?
+  nameEn String?
+  descriptionJa String?
+  descriptionEn String?
+  priceCents Int
+  currency String @default("cad")
+  capacity Int
+  soldCount Int @default(0)
+  salesStartAt DateTime?
+  salesEndAt DateTime?
+  maxPerOrder Int @default(10)
+  active Boolean @default(true)
+  orderItems OrderItem[]
+  tickets Ticket[]
+  @@index([eventId, active])
+}
+
+model Order {
+  id String @id @default(cuid())
+  orderNumber String @unique
+  eventId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  userId String?
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status OrderStatus @default(PENDING)
+  purchaserName String
+  purchaserEmail String
+  currency String @default("cad")
+  subtotalCents Int
+  platformFeeCents Int
+  totalCents Int
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId String? @unique
+  returnTokenHash String @unique
+  expiresAt DateTime
+  paidAt DateTime?
+  eventTitleSnapshot String
+  eventStartsAtSnapshot DateTime
+  eventTimezoneSnapshot String
+  venueNameSnapshot String
+  addressSnapshot String
+  items OrderItem[]
+  tickets Ticket[]
+  refunds Refund[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId, status])
+  @@index([purchaserEmail, status])
+  @@index([eventId, status])
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+  orderId String
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  ticketTypeId String
+  ticketType TicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
+  quantity Int
+  unitPriceCents Int
+  ticketNameSnapshot String
+  tickets Ticket[]
+}
+
+model Ticket {
+  id String @id @default(cuid())
+  orderId String
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItemId String
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  ticketTypeId String
+  ticketType TicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
+  ticketCode String @unique
+  accessTokenHash String @unique
+  checkInTokenHash String @unique
+  status TicketStatus @default(VALID)
+  attendeeName String
+  attendeeEmail String?
+  eventTitleSnapshot String
+  eventStartsAtSnapshot DateTime
+  eventTimezoneSnapshot String
+  venueNameSnapshot String
+  addressSnapshot String
+  ticketNameSnapshot String
+  priceCentsSnapshot Int
+  usedAt DateTime?
+  checkIns CheckIn[]
+  createdAt DateTime @default(now())
+  @@index([orderId, status])
+  @@index([ticketTypeId, status])
+}
+
+model CheckIn {
+  id String @id @default(cuid())
+  ticketId String
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  checkedInById String
+  checkedInAt DateTime @default(now())
+  @@index([ticketId, checkedInAt])
+}
+
+model EventReport {
+  id String @id @default(cuid())
+  eventId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  reporterEmail String?
+  reason String
+  details String?
+  status ReportStatus @default(OPEN)
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([status, createdAt])
+}
+
+model Refund {
+  id String @id @default(cuid())
+  orderId String
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  stripeRefundId String? @unique
+  amountCents Int
+  status RefundStatus @default(PENDING)
+  reason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlatformSetting {
+  key String @id
+  value String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+  actorUserId String?
+  actor User? @relation("ActorLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action String
+  entityType String
+  entityId String
+  metadata Json?
+  createdAt DateTime @default(now())
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
