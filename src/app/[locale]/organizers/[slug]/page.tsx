@@ -1,0 +1,1 @@
+export default function Organizer(){return <main className="shell section"><div className="mark" style={{width:70,height:70,fontSize:26}}>日</div><h1 className="serif">Vancouver Japanese Society</h1><p className="muted" style={{maxWidth:650}}>日本文化を通して、バンクーバーの人と人をつなぐコミュニティ団体です。</p><div className="eyebrow" style={{marginTop:40}}>Upcoming events</div><h2>開催予定のイベント</h2></main>}

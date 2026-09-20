@@ -1,0 +1,1 @@
+export default function Tickets(){return <main className="shell section"><div className="eyebrow">My account</div><h1 className="serif">マイチケット</h1><div className="panel" style={{margin:'30px 0'}}><div className="date">UPCOMING · OCT 12</div><h2>Vancouver 秋祭り 2026</h2><p className="muted">一般チケット · 1枚　　注文 #HND-26A92</p><button className="button">チケットを表示</button></div></main>}
